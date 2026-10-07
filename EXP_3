@@ -1,0 +1,157 @@
+# ID3 Decision Tree Algorithm
+# Dataset: Play Tennis
+
+import pandas as pd
+import numpy as np
+from math import log2
+from sklearn.tree import DecisionTreeClassifier, plot_tree
+import matplotlib.pyplot as plt
+
+# ---------------------------------------------------------
+# 1. Load the dataset
+# ---------------------------------------------------------
+
+df = pd.read_csv("/content/play_tennis.csv")
+
+print("Dataset:")
+print(df)
+print("\nColumns:", df.columns.tolist())
+
+
+# ---------------------------------------------------------
+# 2. Calculate Entropy
+# ---------------------------------------------------------
+
+def entropy(target):
+    values, counts = np.unique(target, return_counts=True)
+
+    ent = 0
+    for count in counts:
+        probability = count / len(target)
+        ent -= probability * log2(probability)
+
+    return ent
+
+
+# ---------------------------------------------------------
+# 3. Calculate Information Gain
+# ---------------------------------------------------------
+
+def information_gain(data, feature, target):
+
+    total_entropy = entropy(data[target])
+
+    values, counts = np.unique(data[feature], return_counts=True)
+
+    weighted_entropy = 0
+
+    for value, count in zip(values, counts):
+        subset = data[data[feature] == value]
+        weighted_entropy += (count / len(data)) * entropy(subset[target])
+
+    gain = total_entropy - weighted_entropy
+
+    return gain
+
+
+# ---------------------------------------------------------
+# 4. Display Entropy and Information Gain
+# ---------------------------------------------------------
+
+target = "Target"
+
+print("\nEntropy of entire dataset:")
+print(entropy(df[target]))
+
+features = [column for column in df.columns if column != target]
+
+print("\nInformation Gain for each attribute:")
+
+for feature in features:
+    print(feature, ":", information_gain(df, feature, target))
+
+
+# ---------------------------------------------------------
+# 5. Find the best attribute (root node)
+# ---------------------------------------------------------
+
+gains = {}
+
+for feature in features:
+    gains[feature] = information_gain(df, feature, target)
+
+best_feature = max(gains, key=gains.get)
+
+print("\nBest attribute selected as Root Node:")
+print(best_feature)
+
+
+# ---------------------------------------------------------
+# 6. Build ID3 Decision Tree using sklearn
+# ---------------------------------------------------------
+
+# Convert categorical data into numerical values
+X = pd.get_dummies(df[features])
+y = df[target].map({"no": 0, "yes": 1})
+
+# ID3 uses entropy as the splitting criterion
+model = DecisionTreeClassifier(
+    criterion="entropy",
+    random_state=42
+)
+
+model.fit(X, y)
+
+
+# ---------------------------------------------------------
+# 7. Display the Decision Tree
+# ---------------------------------------------------------
+
+plt.figure(figsize=(18, 10))
+
+plot_tree(
+    model,
+    feature_names=X.columns,
+    class_names=["No", "Yes"],
+    filled=True,
+    rounded=True
+)
+
+plt.title("ID3 Decision Tree - Play Tennis Dataset")
+plt.show()
+
+
+# ---------------------------------------------------------
+# 8. Classify a New Sample
+# ---------------------------------------------------------
+
+# New sample:
+# Outlook = sunny
+# Temperature = cool
+# Humidity = high
+# Wind = strong
+
+new_sample = pd.DataFrame({
+    "Outlook": ["sunny"],
+    "Temperature": ["cool"],
+    "Humidity": ["high"],
+    "Wind": ["strong"]
+})
+
+# Convert new sample to the same dummy-variable format
+new_sample_encoded = pd.get_dummies(new_sample)
+
+# Make sure columns are exactly the same as training data
+new_sample_encoded = new_sample_encoded.reindex(
+    columns=X.columns,
+    fill_value=0
+)
+
+prediction = model.predict(new_sample_encoded)
+
+if prediction[0] == 1:
+    print("\nNew Sample Classification: YES")
+    print("The person will PLAY TENNIS.")
+else:
+    print("\nNew Sample Classification: NO")
+    print("The person will NOT PLAY TENNIS.")
