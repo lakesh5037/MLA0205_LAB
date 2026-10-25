@@ -1,0 +1,65 @@
+
+# ANN Backpropagation - Testing Program
+
+from google.colab import files
+uploaded = files.upload()
+
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import accuracy_score, confusion_matrix
+
+# Read uploaded dataset
+df = pd.read_csv("breast_cancer_dataset.csv")
+
+X = df.drop(columns=["target", "target_name"]).values
+y = df["target"].values.reshape(-1, 1)
+
+# Split dataset
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# Normalize data
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+# Initialize ANN
+np.random.seed(42)
+W1 = np.random.randn(X_train.shape[1], 16) * 0.1
+b1 = np.zeros((1, 16))
+W2 = np.random.randn(16, 1) * 0.1
+b2 = np.zeros((1, 1))
+
+def sigmoid(z):
+    z = np.clip(z, -500, 500)
+    return 1 / (1 + np.exp(-z))
+
+# Train ANN using backpropagation
+for epoch in range(2000):
+    hidden = sigmoid(X_train @ W1 + b1)
+    output = sigmoid(hidden @ W2 + b2)
+
+    error = output - y_train
+    dW2 = hidden.T @ error / len(X_train)
+    db2 = np.mean(error, axis=0, keepdims=True)
+
+    hidden_error = (error @ W2.T) * hidden * (1 - hidden)
+    dW1 = X_train.T @ hidden_error / len(X_train)
+    db1 = np.mean(hidden_error, axis=0, keepdims=True)
+
+    W2 -= 0.05 * dW2
+    b2 -= 0.05 * db2
+    W1 -= 0.05 * dW1
+    b1 -= 0.05 * db1
+
+# Test the trained ANN
+hidden_test = sigmoid(X_test @ W1 + b1)
+predictions = sigmoid(hidden_test @ W2 + b2)
+y_pred = (predictions >= 0.5).astype(int)
+
+print("ANN Testing Results")
+print("Accuracy:", round(accuracy_score(y_test, y_pred) * 100, 2), "%")
+print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred))
